@@ -233,18 +233,25 @@ def test_apply_drift_patches_apply_happy_path(monkeypatch) -> None:
         respx_mock.get("https://beacon.danhle.net/api/profile/projects").mock(
             return_value=httpx.Response(200, json=[SAMPLE_PROJECT])
         )
-        respx_mock.delete(f"https://beacon.danhle.net/api/profile/projects/{PROJECT_ID}").mock(
-            return_value=httpx.Response(204)
-        )
-        respx_mock.post("https://beacon.danhle.net/api/profile/projects").mock(
-            return_value=httpx.Response(201, json={"id": "new-id-xyz"})
+        patch_route = respx_mock.patch(
+            f"https://beacon.danhle.net/api/profile/projects/{PROJECT_ID}"
+        ).mock(
+            return_value=httpx.Response(
+                200, json={**SAMPLE_PROJECT, "tech_stack": ["Python", "Rust"]}
+            )
         )
         out = apply_drift_patches(patches, dry_run=False)
 
     assert out["ok"] is True
     assert out["succeeded"] == 1
     assert out["applied"][0]["ok"] is True
-    assert out["applied"][0]["new_id"] == "new-id-xyz"
+    assert out["applied"][0]["project_id"] == PROJECT_ID
+    # PATCH body should only contain the delta — tech_stack with the merged list
+    body = patch_route.calls[0].request.content.decode()
+    assert "tech_stack" in body
+    assert "Rust" in body
+    assert "Python" in body  # existing tech preserved
+    assert "name" not in body  # untouched fields not sent
 
 
 def test_apply_drift_patches_validates_patch_shape() -> None:

@@ -243,18 +243,24 @@ def apply_drift_patches(
                 applied.append({"name_hint": patch.name_hint, "ok": False, "reason": "not_found"})
                 continue
             payload = _build_payload(existing, patch)
-            if not adapter.delete_project(patch.project_id):
+            if not payload:
                 applied.append(
-                    {"name_hint": patch.name_hint, "ok": False, "reason": "delete_failed"}
+                    {
+                        "name_hint": patch.name_hint,
+                        "project_id": patch.project_id,
+                        "ok": True,
+                        "reason": "no_op",
+                    }
                 )
                 continue
-            new_id = adapter.create_project(payload)
-            if not new_id:
+            if not adapter.patch_project(patch.project_id, payload):
                 applied.append(
-                    {"name_hint": patch.name_hint, "ok": False, "reason": "create_failed"}
+                    {"name_hint": patch.name_hint, "ok": False, "reason": "patch_failed"}
                 )
                 continue
-            applied.append({"name_hint": patch.name_hint, "ok": True, "new_id": new_id})
+            applied.append(
+                {"name_hint": patch.name_hint, "project_id": patch.project_id, "ok": True}
+            )
 
         return ok(
             {
@@ -262,7 +268,6 @@ def apply_drift_patches(
                 "attempted": len(parsed),
                 "succeeded": sum(1 for a in applied if a.get("ok")),
                 "applied": applied,
-                "note": "If your Beacon deployment indexes projects into Qdrant or similar, re-run the backfill so downstream features pick up the new project IDs.",
             }
         )
     except Exception as e:  # noqa: BLE001
