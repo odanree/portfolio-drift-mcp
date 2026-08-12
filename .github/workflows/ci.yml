@@ -15,7 +15,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install ruff
+      # Pin ruff so a new upstream release can't silently break CI by
+      # enabling new default rules against unchanged code (beacon-mcp
+      # got bitten this way on 2026-07-24). Bump deliberately.
+      - run: pip install "ruff==0.16.2"
       - run: ruff check drift_mcp tests
       - run: ruff format --check drift_mcp tests
 
